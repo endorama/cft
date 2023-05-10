@@ -1,0 +1,116 @@
+#!/usr/bin/env bash
+# This file incorporates work covered by the following copyright and
+# permission notice:
+#   Copyright (c) 2012-2021 Sam Stephenson, Nick Quaranto
+#
+#   Permission is hereby granted, free of charge, to any person obtaining
+#   a copy of this software and associated documentation files (the
+#   "Software"), to deal in the Software without restriction, including
+#   without limitation the rights to use, copy, modify, merge, publish,
+#   distribute, sublicense, and/or sell copies of the Software, and to
+#   permit persons to whom the Software is furnished to do so, subject to
+#   the following conditions:
+#
+#   The above copyright notice and this permission notice shall be
+#   included in all copies or substantial portions of the Software.
+#
+#   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+#   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+#   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+#   NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+#   LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+#   OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+#   WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+set -e
+
+print=""
+if [ "$1" = "-" ]; then
+  print=1
+  shift
+fi
+
+shell="$1"
+if [ -z "$shell" ]; then
+  shell="$(basename "$SHELL")"
+fi
+
+resolve_link() {
+  $(type -p greadlink readlink | head -1) $1
+}
+
+abs_dirname() {
+  local cwd="$(pwd)"
+  local path="$1"
+
+  while [ -n "$path" ]; do
+    cd "${path%/*}"
+    local name="${path##*/}"
+    path="$(resolve_link "$name" || true)"
+  done
+
+  pwd
+  cd "$cwd"
+}
+
+root="$(abs_dirname "$0")/.."
+
+if [ -z "$print" ]; then
+  case "$shell" in
+  bash )
+    profile='~/.bash_profile'
+    ;;
+  zsh )
+    profile='~/.zshenv'
+    ;;
+  * )
+    profile='your profile'
+    ;;
+  esac
+
+  { echo "# Load cft automatically by adding"
+    echo "# the following to ${profile}:"
+    echo
+    echo "eval \"\$(${_CFT_ROOT}/bin/cft init -)\""
+    echo
+  } >&2
+
+  exit 1
+fi
+
+echo "export PATH=\"\${PATH}:${_CFT_ROOT}/bin\""
+
+case "$shell" in
+bash | zsh )
+  echo "source \"$root/completions/cft.${shell}\""
+  ;;
+esac
+
+commands=(`cft commands --sh`)
+IFS="|"
+cat <<EOS
+_cft_wrapper() {
+  local command="\$1"
+  if [ "\$#" -gt 0 ]; then
+    shift
+  fi
+
+  case "\$command" in
+  ${commands[*]})
+    eval \`cft "sh-\$command" "\$@"\`;;
+  *)
+    command cft "\$command" "\$@";;
+  esac
+}
+EOS
+
+# zsh can't pass argument with aliases, but bash can.
+# zsh can have functions with the name being only numbers, but bash can't.
+# fix both cases here by letting zsh have a function, and bash have its alias.
+case "$shell" in
+bash )
+  echo "alias cft=_cft_wrapper"
+  ;;
+zsh )
+  echo "cft=_cft_wrapper"
+  ;;
+esac

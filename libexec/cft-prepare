@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+# Usage: cft prepare
+# Summary: Prepare the current folder for framework usage
+# Help: This command prepares the current folder to use framework features.
+# This includes some preliminary checks to verify needed commands are available,
+# creating the folder structure and initialising a basic environment.
+
+set -eou pipefail
+
+if ! test -d ".git"; then
+  echo "This is not yet a git repo, proceed with caution"
+  echo "This process will override files, sure to proceed?"
+  read -r
+fi
+
+fail() {
+  local msg
+  msg=$1
+
+  echo "$msg"
+  exit 1
+}
+
+check_cmd() {
+  local cmd
+  cmd=$1
+
+  command -v "$cmd" || fail "missing $cmd command"
+}
+
+check_dir() {
+  local dir
+  dir=$1
+
+  mkdir -p "$dir"
+}
+
+check_file() {
+  local f
+  f=$1
+
+  test -f "$f"
+}
+
+copy_file() {
+  local f
+  f=$1
+  local dest
+  dest=$2
+
+  cp "$_CFT_ROOT/share/cft/$f" "./$dest"
+}
+
+template_file() {
+  local f
+  f=$1
+  local dest
+  dest=$2
+
+  cat "$_CFT_ROOT/share/cft/$f" | envsubst > "./$dest/$f"
+}
+
+check_cmd "curl"
+check_cmd "devenv"
+check_cmd "task"
+check_cmd "yq"
+
+check_dir "tools"
+check_dir "tools/lib/sh"
+check_dir "tools/lib/taskfiles"
+check_dir "tools/scripts"
+# Others?
+
+copy_file "Taskfile.yml" "."
+copy_file "devenv.nix" "."
+
+export CFT_DOCKER_REGISTRY="${CFT_DOCKER_REGISTRY:-"ghcr.io"}"
+export CFT_USER=${CFT_USER:-$USER}
+template_file ".devcontainer.json" "."
+
+devenv init

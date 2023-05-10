@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+# Usage: cft add <what>
+# Summary: foobar
+# Help: This command foos some bars.
+
+set -eou pipefail
+
+[ -n "${CFT_DEBUG:-}" ] && set -x
+[ -z "${1:-}" ] && { echo "missing what"; cft help add; exit 1; }
+
+what=${1:-}
+
+case "$what" in
+"") echo "Usage: cft <command> [<args>]
+
+  asdhaskjadskjhlaskjhlsdajhlkasjhlkadsjhklasdjhlkadsjhlk
+"
+;;
+go)
+  source $_CFT_ROOT/lib/get.bash
+  echo "adding go"
+  echo "you need to add 'pkgs.go' to devenv.nix packages section"
+
+  taskfile="/tools/taskfiles/lib/go.taskfile.yml"
+  ghget "https://raw.githubusercontent.com/gsantoro/automation/main" \
+     $taskfile \
+     "./tools/lib/taskfiles/go.taskfile.yml"
+
+  yq -i 'with(
+    .includes;
+    .go = "./tools/lib/taskfiles/go.taskfile.yml"
+  )' Taskfile.yml
+;;
+*)
+  file="$(command_path "$command")"
+
+  if [ -n "$file" ]; then
+    print_help "$file"
+  else
+    echo "cft: no such command \`$command'" >&2
+    exit 1
+  fi
+esac
+
+echo "Done"

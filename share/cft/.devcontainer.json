@@ -1,0 +1,15 @@
+{
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "mkhl.direnv"
+      ]
+    }
+  },
+  "image": "$CFT_DOCKER_REGISTRY/$CFT_USER/devenv:latest",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+  },
+  "overrideCommand": false,
+  "updateContentCommand": "devenv ci"
+}

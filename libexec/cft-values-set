@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+# Usage: cft values set
+# Summary: Prepare the current folder for framework usage
+# Help: This command prepares the current folder to use framework features.
+
+echo "values set"
+

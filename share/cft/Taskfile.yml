@@ -1,0 +1,5 @@
+version: "3"
+vars: {}
+dotenv: ['.env']
+includes: {}
+tasks: {}

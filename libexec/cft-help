@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+# This file incorporates work covered by the following copyright and
+# permission notice:
+#   Copyright (c) 2012-2021 Sam Stephenson, Nick Quaranto
+#
+#   Permission is hereby granted, free of charge, to any person obtaining
+#   a copy of this software and associated documentation files (the
+#   "Software"), to deal in the Software without restriction, including
+#   without limitation the rights to use, copy, modify, merge, publish,
+#   distribute, sublicense, and/or sell copies of the Software, and to
+#   permit persons to whom the Software is furnished to do so, subject to
+#   the following conditions:
+#
+#   The above copyright notice and this permission notice shall be
+#   included in all copies or substantial portions of the Software.
+#
+#   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+#   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+#   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+#   NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+#   LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+#   OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+#   WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+set -e
+
+print_summaries() {
+  local commands=()
+  local summaries=()
+  local longest_command=0
+  local command
+
+  for command in $(cft-commands); do
+    local file="$(command_path "$command")"
+    if [ ! -h "$file" ]; then
+      local summary="$(summary "$file")"
+      if [ -n "$summary" ]; then
+        commands["${#commands[@]}"]="$command"
+        summaries["${#summaries[@]}"]="$summary"
+
+        if [ "${#command}" -gt "$longest_command" ]; then
+          longest_command="${#command}"
+        fi
+      fi
+    fi
+  done
+
+  local index
+  local columns="$(tput cols)"
+  local summary_length=$(( $columns - $longest_command - 5 ))
+
+  for (( index=0; index < ${#commands[@]}; index++ )); do
+    printf "   %-${longest_command}s  %s\n" "${commands[$index]}" \
+      "$(truncate "$summary_length" "${summaries[$index]}")"
+  done
+}
+
+print_help() {
+  local file="$1"
+  local usage="$(usage "$file")"
+
+  if [ -n "$usage" ]; then
+    echo "$usage"
+    
+    local summary="$(summary "$file")"
+    [ -n "$summary" ] && echo "Summary: $summary"
+
+    local help="$(help "$file")"
+    [ -n "$help" ] && echo && echo "$help"
+  else
+    echo "Sorry, this command isn't documented yet."
+  fi
+}
+
+command_path() {
+  command -v "cft-$command" || command -v "cft-sh-$command" || true
+}
+
+summary() {
+  sed -n "s/^# Summary: \(.*\)/\1/p" "$1"
+}
+
+usage() {
+  sed -n "s/^# \(Usage: .*\)/\1/p" "$1"
+}
+
+help() {
+  awk '/^[^#]/{p=0} /^# Help:/{p=1} p' "$1" | sed "s/^# Help: //;s/^# //;s/^#//"
+}
+
+truncate() {
+  local max_length="$1"
+  local string="$2"
+
+  if [ "${#string}" -gt "$max_length" ]; then
+    local length=$(( $max_length - 3 ))
+    echo "${string:0:$length}..."
+  else
+    echo "$string"
+  fi
+}
+
+# Provide cft completions
+if [ "$1" = "--complete" ]; then
+  exec "cft-commands"
+  exit
+fi
+
+command="$1"
+case "$command" in
+"") echo "Usage: cft <command> [<args>]
+
+Some useful cft commands are:
+$(print_summaries)
+
+See 'cft help <command>' for information on a specific command."
+;;
+*)
+  file="$(command_path "$command")"
+
+  if [ -n "$file" ]; then
+    print_help "$file"
+  else
+    echo "cft: no such command \`$command'" >&2
+    exit 1
+  fi
+esac
